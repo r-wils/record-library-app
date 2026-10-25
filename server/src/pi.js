@@ -67,6 +67,34 @@ async function uniqueAudioPath(sftp, originalName) {
   return name;
 }
 
+// Same song already on the Pi (same size and same bytes)? Then reuse that file.
+async function findIdenticalFile(sftp, buffer) {
+  if (!(await sftp.exists(paths.audioDir))) return null;
+  const candidates = (await sftp.list(paths.audioDir))
+    .filter((item) => item.type === '-' && item.size === buffer.length && !item.name.endsWith('.json'));
+
+  for (const item of candidates) {
+    const existing = await sftp.get(`${paths.audioDir}/${item.name}`);
+    if (Buffer.compare(existing, buffer) === 0) return item.name;
+  }
+  return null;
+}
+
+// Puts the uploaded song in audio/ (or reuses an identical one) and returns "audio/<name>".
+async function storeAudio(sftp, upload) {
+  if (!(await sftp.exists(paths.audioDir))) await sftp.mkdir(paths.audioDir, true);
+
+  const existing = await findIdenticalFile(sftp, upload.buffer);
+  if (existing) {
+    console.log(`[pi] ${upload.originalname} is already on the Pi as ${existing}, reusing it`);
+    return `audio/${existing}`;
+  }
+
+  const name = await uniqueAudioPath(sftp, upload.originalname);
+  await sftp.put(upload.buffer, `${paths.audioDir}/${name}`);
+  return `audio/${name}`;
+}
+
 // A file may only be deleted when no record (library or repo records.json) still uses it.
 async function deleteFileIfUnused(sftp, file, library) {
   if (!file || !file.startsWith('audio/')) return;
@@ -114,11 +142,7 @@ export function addRecord(fields, upload) {
       throw Object.assign(new Error('this RFID tag is already linked'), { status: 409 });
     }
 
-    if (!(await sftp.exists(paths.audioDir))) await sftp.mkdir(paths.audioDir, true);
-    const name = await uniqueAudioPath(sftp, upload.originalname);
-    await sftp.put(upload.buffer, `${paths.audioDir}/${name}`);
-
-    const record = cleanRecord(rfid, fields, `audio/${name}`);
+    const record = cleanRecord(rfid, fields, await storeAudio(sftp, upload));
     library.push(record);
     await writeLibrary(sftp, library);
     return record;
@@ -133,11 +157,7 @@ export function updateRecord(rfid, fields, upload) {
 
     const oldFile = library[index].file;
     let file = oldFile;
-    if (upload) {
-      const name = await uniqueAudioPath(sftp, upload.originalname);
-      await sftp.put(upload.buffer, `${paths.audioDir}/${name}`);
-      file = `audio/${name}`;
-    }
+    if (upload) file = await storeAudio(sftp, upload);
 
     library[index] = cleanRecord(rfid, fields, file);
     await writeLibrary(sftp, library);

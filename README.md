@@ -113,5 +113,6 @@ web/src/app/          Angular (standalone component + signals)
 | DELETE | `/api/records/:rfid` | plaatje en zijn audiobestand verwijderen |
 | GET | `/api/events` | live RFID-scans (Server-Sent Events) |
 
-Een audiobestand wordt alleen verwijderd als geen enkel ander plaatje en geen
-record in `records.json` het nog gebruikt.
+Staat exact hetzelfde bestand al in `audio/` op de Pi, dan gebruikt de app dat
+in plaats van een kopie te uploaden. Een audiobestand wordt alleen verwijderd als
+geen enkel ander plaatje en geen record in `records.json` het nog gebruikt.
