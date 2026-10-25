@@ -58,6 +58,17 @@ Tips:
 - Liever een SSH-sleutel dan een wachtwoord? Zet `PI_KEY_FILE=/ssh/id_ed25519` in
   `.env` en haal de `volumes`-regels in `docker-compose.yml` uit commentaar.
 
+## Testen zonder Pico
+
+`tools/pi_rfid_bridge.py` leest tags met een RC522 die rechtstreeks op de Pi
+zit en stuurt ze over MQTT door, net zoals de Pico. Een sticker geeft dezelfde
+code als op de Pico, dus koppelingen blijven later geldig. Bedrading en uitleg
+staan bovenaan in het script. Zonder lezer kan het ook met een nep-scan op de Pi:
+
+```bash
+mosquitto_pub -h localhost -t recordplayer/rfid -m a1b2c3d4
+```
+
 ## Formaat van `library.json`
 
 Hetzelfde als `records.json` van de speler, met een `rfid`-veld erbij:
