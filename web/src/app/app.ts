@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LibraryService, PlayerRecord, RecordForm, Status } from './library.service';
 
@@ -22,6 +22,7 @@ export class App {
   protected readonly mode = signal<'new' | 'edit' | null>(null);
   protected readonly form = signal<RecordForm>({ ...EMPTY_FORM });
   protected readonly progress = signal<number | null>(null);
+  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
   protected readonly mqttConnected = this.library.mqttConnected;
   protected readonly lastScan = this.library.lastScan;
@@ -32,33 +33,23 @@ export class App {
     return scan ? this.records().find((record) => record.rfid === scan.uid) ?? null : null;
   });
 
+  // A scan only updates "Laatst gescand"; the form opens with its buttons.
   constructor() {
     this.refresh();
-
-    // A new tag on the reader: open the form for it (unless you are busy typing).
-    // Each scan is handled once, so closing the form does not reopen it.
-    effect(() => {
-      const scan = this.lastScan();
-      if (!scan || scan.at === this.handledScan || this.mode() !== null || this.loading()) return;
-      this.handledScan = scan.at;
-      const known = this.records().find((record) => record.rfid === scan.uid);
-      if (known) this.edit(known);
-      else this.startNew(scan.uid);
-    });
   }
 
-  private handledScan = '';
+  private clearFileInput(): void {
+    const input = this.fileInput()?.nativeElement;
+    if (input) input.value = '';
+  }
 
   protected refresh(): void {
     this.loading.set(true);
     this.library.getStatus().subscribe({
       next: (status) => {
         this.status.set(status);
-        // Show a scan from before the page was opened, without opening the form for it.
-        if (status.lastScan && !this.lastScan()) {
-          this.handledScan = status.lastScan.at;
-          this.lastScan.set(status.lastScan);
-        }
+        // Show a scan from before the page was opened.
+        if (status.lastScan && !this.lastScan()) this.lastScan.set(status.lastScan);
       },
       error: (error) => this.showError(error),
     });
@@ -76,6 +67,7 @@ export class App {
 
   protected startNew(rfid = ''): void {
     this.form.set({ ...EMPTY_FORM, rfid });
+    this.clearFileInput();
     this.mode.set('new');
     this.notice.set('');
   }
@@ -88,6 +80,7 @@ export class App {
       fact: record.facts[0] ?? '',
       file: null,
     });
+    this.clearFileInput();
     this.mode.set('edit');
     this.notice.set('');
   }

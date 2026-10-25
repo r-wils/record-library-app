@@ -32,17 +32,23 @@
       <p class="uid">{{ scan.uid }}</p>
       @if (scannedRecord(); as record) {
         <p>Gekoppeld aan <strong>{{ record.artist }} - {{ record.title }}</strong></p>
+        <div class="actions">
+          <button (click)="edit(record)">Bewerken</button>
+        </div>
       } @else {
         <p>Nieuw plaatje, nog niet gekoppeld.</p>
+        <div class="actions">
+          <button (click)="startNew(scan.uid)">+ Toevoegen als nieuw</button>
+        </div>
       }
     } @else {
       <p class="hint">
         Leg een plaatje op de lezer, met de arm op de rust. De code verschijnt hier vanzelf.
       </p>
     }
-    @if (mode() === null) {
-      <button (click)="startNew()">Code zelf ingeven</button>
-    }
+    <p class="manual">
+      <button class="link" (click)="startNew()">Code zelf ingeven</button>
+    </p>
   </section>
 
   @if (mode(); as m) {
@@ -56,7 +62,7 @@
         </label>
         <label>
           Audiobestand {{ m === 'edit' ? '(leeg laten om te houden)' : '' }}
-          <input type="file" accept=".mp3,.ogg,.wav,.flac" (change)="setFile($event)" [required]="m === 'new'" />
+          <input #fileInput type="file" accept=".mp3,.ogg,.wav,.flac" (change)="setFile($event)" [required]="m === 'new'" />
         </label>
         <div class="row">
           <label>
