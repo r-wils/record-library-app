@@ -1,0 +1,114 @@
+<header>
+  <h1>Record Library</h1>
+  <p class="sub">RFID-plaatjes koppelen aan muziek op de Smart Record Player</p>
+
+  <div class="status">
+    @if (status(); as s) {
+      <span class="pill" [class.ok]="s.pi.ok" [class.bad]="!s.pi.ok">
+        Pi {{ s.host }}: {{ s.pi.ok ? 'verbonden' : 'niet bereikbaar' }}
+      </span>
+    }
+    <span class="pill" [class.ok]="mqttConnected()" [class.bad]="!mqttConnected()">
+      RFID-lezer: {{ mqttConnected() ? 'luistert' : 'geen MQTT' }}
+    </span>
+    <button class="link" (click)="refresh()">Vernieuwen</button>
+  </div>
+  @if (status()?.pi?.error; as piError) {
+    <p class="error">{{ piError }}</p>
+  }
+</header>
+
+<main>
+  @if (error()) {
+    <p class="error">{{ error() }} <button class="link" (click)="error.set('')">sluiten</button></p>
+  }
+  @if (notice()) {
+    <p class="notice">{{ notice() }}</p>
+  }
+
+  <section class="card scan">
+    <h2>Laatst gescand</h2>
+    @if (lastScan(); as scan) {
+      <p class="uid">{{ scan.uid }}</p>
+      @if (scannedRecord(); as record) {
+        <p>Gekoppeld aan <strong>{{ record.artist }} - {{ record.title }}</strong></p>
+      } @else {
+        <p>Nieuw plaatje, nog niet gekoppeld.</p>
+      }
+    } @else {
+      <p class="hint">
+        Leg een plaatje op de lezer, met de arm op de rust. De code verschijnt hier vanzelf.
+      </p>
+    }
+    @if (mode() === null) {
+      <button (click)="startNew()">Code zelf ingeven</button>
+    }
+  </section>
+
+  @if (mode(); as m) {
+    <section class="card">
+      <h2>{{ m === 'new' ? 'Nieuw plaatje' : 'Plaatje bewerken' }}</h2>
+      <form (submit)="$event.preventDefault(); save()">
+        <label>
+          RFID-code
+          <input [value]="form().rfid" (input)="setField('rfid', $event)" [readOnly]="m === 'edit'"
+                 placeholder="bv. a1b2c3d4" required />
+        </label>
+        <label>
+          Audiobestand {{ m === 'edit' ? '(leeg laten om te houden)' : '' }}
+          <input type="file" accept=".mp3,.ogg,.wav,.flac" (change)="setFile($event)" [required]="m === 'new'" />
+        </label>
+        <div class="row">
+          <label>
+            Artiest
+            <input [value]="form().artist" (input)="setField('artist', $event)" required />
+          </label>
+          <label>
+            Titel
+            <input [value]="form().title" (input)="setField('title', $event)" required />
+          </label>
+        </div>
+        <label>
+          Weetje (optioneel, voor als de AI niet werkt)
+          <input [value]="form().fact" (input)="setField('fact', $event)" />
+        </label>
+
+        @if (progress() !== null) {
+          <progress max="100" [value]="progress()"></progress>
+          <p class="hint">{{ progress()! < 100 ? 'Uploaden naar de Pi... ' + progress() + '%' : 'Opslaan op de Pi...' }}</p>
+        }
+
+        <div class="actions">
+          <button type="submit" [disabled]="progress() !== null">Opslaan op de Pi</button>
+          <button type="button" class="secondary" (click)="cancel()">Annuleren</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <section class="card">
+    <h2>Plaatjes op de Pi ({{ records().length }})</h2>
+    @if (loading()) {
+      <p class="hint">Laden...</p>
+    } @else if (records().length === 0) {
+      <p class="hint">
+        Nog geen plaatjes. Zolang deze lijst leeg is, speelt de Pi de platen uit records.json.
+      </p>
+    } @else {
+      <ul class="records">
+        @for (record of records(); track record.rfid) {
+          <li [class.active]="lastScan()?.uid === record.rfid">
+            <div>
+              <strong>{{ record.artist }} - {{ record.title }}</strong>
+              <span class="meta">{{ record.rfid }} · {{ fileName(record.file) }}</span>
+            </div>
+            <div class="actions">
+              <button class="secondary" (click)="edit(record)">Bewerken</button>
+              <button class="danger" (click)="remove(record)">Verwijderen</button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</main>

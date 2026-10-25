@@ -1,0 +1,10 @@
+services:
+  record-library:
+    build: .
+    image: record-library-app
+    ports:
+      - "3000:3000"
+    env_file: .env
+    # Only needed when you log in to the Pi with an SSH key instead of a password:
+    # volumes:
+    #   - ~/.ssh/id_ed25519:/ssh/id_ed25519:ro
